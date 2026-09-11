@@ -491,7 +491,12 @@
     const ring = showFrame ? (RING[d.type] || RING.phone) : 0;
     const realistic = S.realisticUI && d.type !== 'laptop';
     const mode = realistic ? S.screenMode : 'none';
-    const statusH = mode === 'pwa' || mode === 'browser' ? (instance.landscape ? 24 : d.statusH ?? STATUS_H[d.cutout] ?? STATUS_H.none) : 0;
+    // devices with a camera inside the screen area declare their own status bar height.
+    // In landscape it still applies when the render turns counter-clockwise (camera
+    // stays at the top); a clockwise render moves the camera to the bottom edge.
+    const cw = d.frame?.rotate === 'cw';
+    const camInBar = !instance.landscape || !cw;
+    const statusH = mode === 'pwa' || mode === 'browser' ? ((camInBar ? d.statusH : null) ?? (instance.landscape ? 24 : STATUS_H[d.cutout] ?? STATUS_H.none)) : 0;
     const ui = mode === 'browser' ? (BROWSER_UI[`${d.os}-${d.type}`] || BROWSER_UI['android-phone']) : { top: 0, bottom: 0 };
     const pageH = Math.max(200, screenH - statusH - ui.top - ui.bottom);
     // frames with a physical home button get extra chin/forehead (see .fx-home-button in CSS)
@@ -534,7 +539,11 @@
     if (statusH) {
       const status = el('div', 'fx-statusbar');
       status.innerHTML = `<span class="fx-time"></span><span class="fx-status-icons"><i class="fx-signal"></i><i class="fx-wifi"></i><i class="fx-battery"></i></span>`;
-      if (d.statusPad && !instance.landscape) status.style.padding = `0 ${d.statusPad[1]}px 0 ${d.statusPad[0]}px`;
+      if (d.statusPad && camInBar) {
+        // rotated 90° ccw in landscape, what was on the right (camera) ends up on the left
+        const [l, r] = instance.landscape ? [d.statusPad[1], d.statusPad[0]] : d.statusPad;
+        status.style.padding = `0 ${r}px 0 ${l}px`;
+      }
       if (d.statusAlign === 'top') status.style.alignItems = 'flex-start';
       if (d.cutout && d.cutout !== 'none' && !photo) status.appendChild(el('div', `fx-cutout fx-cutout-shape-${d.cutout}`));
       screen.appendChild(status);
@@ -558,7 +567,8 @@
         // one radius per corner (tl tr br bl): the hinge side of a foldable, for
         // instance, needs a bigger radius than the screen cut-out itself
         const rs = Array.isArray(photo.r) ? photo.r : [photo.r, photo.r, photo.r, photo.r];
-        const rr = instance.landscape ? [rs[3], rs[0], rs[1], rs[2]] : rs; // rotated 90° ccw
+        // corners after rotation (tl tr br bl): ccw → old tr becomes tl; cw → old bl becomes tl
+        const rr = !instance.landscape ? rs : (photo.rotate === 'cw' ? [rs[3], rs[0], rs[1], rs[2]] : [rs[1], rs[2], rs[3], rs[0]]);
         screen.style.clipPath = `inset(0 round ${rr.map((v) => `${v}px`).join(' ')})`;
       }
     } else if (showFrame) {
@@ -616,7 +626,10 @@
         // In landscape the portrait render is rotated 90° counter-clockwise, so a
         // point (u, v) of the render lands at (v, W - u).
         let px = photo.x, py = photo.y;
-        if (instance.landscape) { px = photo.y; py = photo.w - photo.x - d.w; }
+        if (instance.landscape) {
+          if (photo.rotate === 'cw') { px = photo.h - photo.y - d.h; py = photo.x; } // (u, v) → (H − v, u)
+          else { px = photo.y; py = photo.w - photo.x - d.w; }                       // (u, v) → (v, W − u)
+        }
         px = snap(px); py = snap(py);
         oW = snap(instance.landscape ? photo.h : photo.w);
         oH = snap(instance.landscape ? photo.w : photo.h);
@@ -630,7 +643,7 @@
           photoImg.style.height = `${snap(photo.h)}px`;
           photoImg.style.left = instance.landscape ? `${(oW - snap(photo.w)) / 2}px` : '0';
           photoImg.style.top = instance.landscape ? `${(oH - snap(photo.h)) / 2}px` : '0';
-          photoImg.style.transform = instance.landscape ? 'rotate(-90deg)' : '';
+          photoImg.style.transform = instance.landscape ? (photo.rotate === 'cw' ? 'rotate(90deg)' : 'rotate(-90deg)') : '';
         }
       }
       frame.style.setProperty('--bezel', `${bz}px`);
@@ -751,6 +764,7 @@
   // in the DOM would reload the page inside it.
   const orderedCards = () => [...stage.querySelectorAll('.fx-card')].sort((a, b) => Number(a.style.order) - Number(b.style.order));
 
+  let dragRaf = 0;
   function startDrag(e, card) {
     const startX = e.clientX, startY = e.clientY;
     let active = false;
@@ -769,8 +783,15 @@
       const cards = orderedCards().filter((c) => c !== card);
       let idx = cards.indexOf(over);
       if (ev.clientX >= r.left + r.width / 2) idx += 1;
+      if (cards[idx] === card) return;
       cards.splice(idx, 0, card);
       cards.forEach((c, i) => { c.style.order = i * 2; });
+      // keep column widths and device scale in step with the new visual order,
+      // otherwise a wide device lands in a narrow column and spills over
+      const byUid = new Map(state.instances.map((i) => [i.uid, i]));
+      applyColumns(cards.map((c) => byUid.get(c.dataset.uid)).filter(Boolean));
+      cancelAnimationFrame(dragRaf);
+      dragRaf = requestAnimationFrame(fitAll);
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -847,9 +868,11 @@
     fitAll();
   }
 
-  function applyColumns() {
-    if (!state.instances.length) { stage.style.gridTemplateColumns = ''; return; }
-    stage.style.gridTemplateColumns = state.instances.map((i) => `minmax(0, ${i.weight || 1}fr)`).join(' 8px ');
+  // column template follows the given order of instances (state order by default;
+  // the visual order while a card is being dragged)
+  function applyColumns(ordered = state.instances) {
+    if (!ordered.length) { stage.style.gridTemplateColumns = ''; return; }
+    stage.style.gridTemplateColumns = ordered.map((i) => `minmax(0, ${i.weight || 1}fr)`).join(' 8px ');
   }
 
   function startResize(e, idx) {
