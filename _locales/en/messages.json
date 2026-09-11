@@ -1,0 +1,199 @@
+{
+  "extension_name": {
+    "message": "Flexi Device — Mobile Simulator"
+  },
+  "extension_description": {
+    "message": "Preview any website on iPhone, iPad and Android frames side by side, with real mobile user agents."
+  },
+  "toggle_menu": {
+    "message": "Toggle Flexi Device"
+  },
+  "add_device": {
+    "message": "Add device"
+  },
+  "custom_device": {
+    "message": "Custom device"
+  },
+  "reload": {
+    "message": "Reload all"
+  },
+  "rotate": {
+    "message": "Rotate"
+  },
+  "screenshot": {
+    "message": "Screenshot"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "close": {
+    "message": "Close simulator"
+  },
+  "ua_label": {
+    "message": "User agent"
+  },
+  "ua_ios": {
+    "message": "iOS (Safari)"
+  },
+  "ua_android": {
+    "message": "Android (Chrome)"
+  },
+  "ua_desktop": {
+    "message": "Desktop (unchanged)"
+  },
+  "custom_title": {
+    "message": "New custom device"
+  },
+  "custom_name": {
+    "message": "Name"
+  },
+  "custom_width": {
+    "message": "Width (px)"
+  },
+  "custom_height": {
+    "message": "Height (px)"
+  },
+  "custom_type": {
+    "message": "Type"
+  },
+  "type_phone": {
+    "message": "Phone"
+  },
+  "type_tablet": {
+    "message": "Tablet"
+  },
+  "custom_os": {
+    "message": "Style"
+  },
+  "os_ios": {
+    "message": "iOS"
+  },
+  "os_android": {
+    "message": "Android"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "delete_custom": {
+    "message": "Delete custom device"
+  },
+  "group_phones": {
+    "message": "Phones"
+  },
+  "group_tablets": {
+    "message": "Tablets"
+  },
+  "group_custom": {
+    "message": "Custom"
+  },
+  "empty_stage": {
+    "message": "No devices. Use “Add device” in the toolbar."
+  },
+  "screenshot_failed": {
+    "message": "Screenshot failed"
+  },
+  "restricted_page": {
+    "message": "Flexi Device cannot run on this page (browser internal pages, the Web Store or the extension itself)."
+  },
+  "search_placeholder": {
+    "message": "Search among $count$+ devices",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "filter_all": {
+    "message": "All"
+  },
+  "filter_flagship": {
+    "message": "Flagship"
+  },
+  "filter_top": {
+    "message": "Top"
+  },
+  "favorites": {
+    "message": "Favorites"
+  },
+  "my_devices": {
+    "message": "My devices"
+  },
+  "create_device": {
+    "message": "Create device"
+  },
+  "favorite": {
+    "message": "Favorite"
+  },
+  "replace_device": {
+    "message": "Change device"
+  },
+  "no_results": {
+    "message": "No devices match."
+  },
+  "group_laptops": {
+    "message": "Laptops & desktops"
+  },
+  "type_laptop": {
+    "message": "Laptop"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "drag_hint": {
+    "message": "Drag to reorder"
+  },
+  "resize_hint": {
+    "message": "Drag to resize · double-click to reset"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "set_frame": {
+    "message": "Device frame"
+  },
+  "set_realistic": {
+    "message": "Realistic UI"
+  },
+  "set_sync": {
+    "message": "Synchronized scrolling"
+  },
+  "set_theme": {
+    "message": "Theme"
+  },
+  "theme_system": {
+    "message": "System"
+  },
+  "theme_light": {
+    "message": "Light"
+  },
+  "theme_dark": {
+    "message": "Dark"
+  },
+  "set_screen_mode": {
+    "message": "Screen mode"
+  },
+  "mode_browser": {
+    "message": "Browser"
+  },
+  "mode_pwa": {
+    "message": "PWA"
+  },
+  "mode_fullscreen": {
+    "message": "Full screen"
+  },
+  "set_custom_url": {
+    "message": "Custom URL"
+  },
+  "set_custom_time": {
+    "message": "Custom time"
+  },
+  "url_example": {
+    "message": "e.g. example.com"
+  },
+  "time_example": {
+    "message": "HH:MM"
+  }
+}

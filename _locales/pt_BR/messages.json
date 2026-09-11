@@ -1,0 +1,199 @@
+{
+  "extension_name": {
+    "message": "Flexi Device — Simulador Mobile"
+  },
+  "extension_description": {
+    "message": "Visualize qualquer site em molduras de iPhone, iPad e Android lado a lado, com user agents mobile reais."
+  },
+  "toggle_menu": {
+    "message": "Ativar/desativar Flexi Device"
+  },
+  "add_device": {
+    "message": "Adicionar dispositivo"
+  },
+  "custom_device": {
+    "message": "Dispositivo personalizado"
+  },
+  "reload": {
+    "message": "Recarregar todos"
+  },
+  "rotate": {
+    "message": "Girar"
+  },
+  "screenshot": {
+    "message": "Captura de tela"
+  },
+  "remove": {
+    "message": "Remover"
+  },
+  "close": {
+    "message": "Fechar simulador"
+  },
+  "ua_label": {
+    "message": "User agent"
+  },
+  "ua_ios": {
+    "message": "iOS (Safari)"
+  },
+  "ua_android": {
+    "message": "Android (Chrome)"
+  },
+  "ua_desktop": {
+    "message": "Desktop (sem alteração)"
+  },
+  "custom_title": {
+    "message": "Novo dispositivo personalizado"
+  },
+  "custom_name": {
+    "message": "Nome"
+  },
+  "custom_width": {
+    "message": "Largura (px)"
+  },
+  "custom_height": {
+    "message": "Altura (px)"
+  },
+  "custom_type": {
+    "message": "Tipo"
+  },
+  "type_phone": {
+    "message": "Celular"
+  },
+  "type_tablet": {
+    "message": "Tablet"
+  },
+  "custom_os": {
+    "message": "Estilo"
+  },
+  "os_ios": {
+    "message": "iOS"
+  },
+  "os_android": {
+    "message": "Android"
+  },
+  "save": {
+    "message": "Salvar"
+  },
+  "cancel": {
+    "message": "Cancelar"
+  },
+  "delete_custom": {
+    "message": "Excluir dispositivo personalizado"
+  },
+  "group_phones": {
+    "message": "Celulares"
+  },
+  "group_tablets": {
+    "message": "Tablets"
+  },
+  "group_custom": {
+    "message": "Personalizados"
+  },
+  "empty_stage": {
+    "message": "Nenhum dispositivo. Use “Adicionar dispositivo” na barra superior."
+  },
+  "screenshot_failed": {
+    "message": "Falha na captura de tela"
+  },
+  "restricted_page": {
+    "message": "O Flexi Device não funciona nesta página (páginas internas do navegador, Web Store ou a própria extensão)."
+  },
+  "search_placeholder": {
+    "message": "Buscar entre $count$+ dispositivos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "filter_all": {
+    "message": "Todos"
+  },
+  "filter_flagship": {
+    "message": "Flagship"
+  },
+  "filter_top": {
+    "message": "Top"
+  },
+  "favorites": {
+    "message": "Favoritos"
+  },
+  "my_devices": {
+    "message": "Meus dispositivos"
+  },
+  "create_device": {
+    "message": "Criar dispositivo"
+  },
+  "favorite": {
+    "message": "Favoritar"
+  },
+  "replace_device": {
+    "message": "Trocar dispositivo"
+  },
+  "no_results": {
+    "message": "Nenhum dispositivo encontrado."
+  },
+  "group_laptops": {
+    "message": "Notebooks e desktops"
+  },
+  "type_laptop": {
+    "message": "Notebook"
+  },
+  "settings": {
+    "message": "Configurações"
+  },
+  "drag_hint": {
+    "message": "Arraste para reordenar"
+  },
+  "resize_hint": {
+    "message": "Arraste para redimensionar · duplo clique para igualar"
+  },
+  "settings_title": {
+    "message": "Definições"
+  },
+  "set_frame": {
+    "message": "Moldura do dispositivo"
+  },
+  "set_realistic": {
+    "message": "UI realista"
+  },
+  "set_sync": {
+    "message": "Rolagem sincronizada"
+  },
+  "set_theme": {
+    "message": "Tema"
+  },
+  "theme_system": {
+    "message": "Sistema"
+  },
+  "theme_light": {
+    "message": "Claro"
+  },
+  "theme_dark": {
+    "message": "Escuro"
+  },
+  "set_screen_mode": {
+    "message": "Modo de tela"
+  },
+  "mode_browser": {
+    "message": "Navegador"
+  },
+  "mode_pwa": {
+    "message": "PWA"
+  },
+  "mode_fullscreen": {
+    "message": "Tela cheia"
+  },
+  "set_custom_url": {
+    "message": "URL personalizada"
+  },
+  "set_custom_time": {
+    "message": "Hora personalizada"
+  },
+  "url_example": {
+    "message": "ex. example.com"
+  },
+  "time_example": {
+    "message": "HH:MM"
+  }
+}
