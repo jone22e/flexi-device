@@ -195,5 +195,17 @@
   },
   "time_example": {
     "message": "HH:MM"
+  },
+  "frame_photo": {
+    "message": "Realista"
+  },
+  "frame_drawn": {
+    "message": "Desenhada"
+  },
+  "frame_none": {
+    "message": "Sem moldura"
+  },
+  "equalize": {
+    "message": "Reorganizar dispositivos (igualar larguras)"
   }
 }

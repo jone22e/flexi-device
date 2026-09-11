@@ -2,12 +2,21 @@
 // active tab (after js/devices.js). Builds the simulator UI inside a Shadow DOM
 // so page styles never leak in, and loads the site inside one <iframe> per frame.
 (() => {
-  if (window.__flexiDevice) { window.__flexiDevice.render(); return; }
+  if (window.__flexiDevice) {
+    // an instance is already on the page: reuse it if its extension context is
+    // still valid, otherwise (extension was reloaded) tear it down and boot fresh
+    if (window.__flexiDevice.alive?.()) { window.__flexiDevice.render(); return; }
+    try { window.__flexiDevice.teardown(); } catch { /* stale instance */ }
+  }
 
-  const t = (key, subs) => chrome.i18n.getMessage(key, subs) || key;
+  // When the extension is reloaded while the simulator is open, this script
+  // keeps running but every chrome.* call throws "Extension context invalidated".
+  const alive = () => { try { return !!chrome.runtime?.id; } catch { return false; } };
+  const t = (key, subs) => { try { return chrome.i18n.getMessage(key, subs) || key; } catch { return key; } };
   const PRESETS = globalThis.FLEXI_DEVICES || [];
 
-  const BEZEL = { phone: 14, tablet: 26, laptop: 16 };
+  const BEZEL = { phone: 12, tablet: 18, laptop: 14 };
+  const LAPTOP_OVERHANG = 44; // aluminium base sticks out this much on each side
   // height of the status-bar strip drawn above the page, per cutout style
   const STATUS_H = { island: 48, notch: 44, punch: 30, none: 24 };
   const BRAND_ORDER = ['Apple', 'Samsung', 'Google', 'Xiaomi', 'Motorola', 'OnePlus', 'Huawei', 'OPPO', 'vivo', 'Nothing', 'Laptops'];
@@ -22,7 +31,7 @@
     customDevices: [],
     favorites: [],
     headerType: 'ios',
-    settings: { showFrame: true, realisticUI: true, syncScroll: true, theme: 'system', screenMode: 'browser', customUrl: '', customTime: '' },
+    settings: { frameStyle: 'photo', realisticUI: true, syncScroll: true, theme: 'system', screenMode: 'browser', customUrl: '', customTime: '' },
     url: location.href,
     selectedUid: null,
   };
@@ -35,16 +44,20 @@
     const s = await chrome.storage.local.get(['instances', 'customDevices', 'favorites', 'headerType', 'syncScroll', 'settings']);
     Object.assign(state.settings, s.settings || {});
     if (s.syncScroll === false && !s.settings) state.settings.syncScroll = false; // legacy key
+    if (s.settings && s.settings.showFrame === false && !s.settings.frameStyle) state.settings.frameStyle = 'none'; // legacy toggle
+    if (!['photo', 'drawn', 'none'].includes(state.settings.frameStyle)) state.settings.frameStyle = 'photo';
     state.customDevices = Array.isArray(s.customDevices) ? s.customDevices : [];
     state.favorites = Array.isArray(s.favorites) ? s.favorites : [];
     state.headerType = s.headerType || 'ios';
     state.instances = (Array.isArray(s.instances) && s.instances.length ? s.instances : DEFAULT_INSTANCES)
       .filter((i) => findDevice(i.deviceId));
   }
-  const saveInstances = () => chrome.storage.local.set({ instances: state.instances });
-  const saveCustom = () => chrome.storage.local.set({ customDevices: state.customDevices });
-  const saveFavorites = () => chrome.storage.local.set({ favorites: state.favorites });
-  const saveSettings = () => chrome.storage.local.set({ settings: state.settings });
+  // chrome.storage rejects (rather than throws) once the context is invalidated
+  const store = (obj) => { try { return Promise.resolve(chrome.storage.local.set(obj)).catch(() => {}); } catch { return Promise.resolve(); } };
+  const saveInstances = () => store({ instances: state.instances });
+  const saveCustom = () => store({ customDevices: state.customDevices });
+  const saveFavorites = () => store({ favorites: state.favorites });
+  const saveSettings = () => store({ settings: state.settings });
 
   // ---------------------------------------------------------------- DOM setup
   const host = document.createElement('flexi-device-root');
@@ -112,6 +125,7 @@
     lock: '<svg viewBox="0 0 24 24"><rect x="6" y="10" width="12" height="10" rx="2"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg>',
     aa: '<svg viewBox="0 0 24 24"><path d="M3 18l4.5-12h1L13 18M5 14h5.5M14 18l3-8h.8l3 8M15.5 15.5h4"/></svg>',
     mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>',
+    columns: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.2"/><rect x="9.5" y="4" width="5" height="16" rx="1.2"/><rect x="16" y="4" width="5" height="16" rx="1.2"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     apple: '<svg viewBox="0 0 24 24"><path d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.8-3-.8C7 7.3 5.6 8.2 4.8 9.6c-1.7 2.9-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8s1.9.8 3.2.8 2.1-1.2 2.9-2.4c.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14.1 5.7c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" fill="currentColor" stroke="none"/></svg>',
   };
@@ -149,6 +163,7 @@
       const card = inst && stage.querySelector(`.fx-card[data-uid="${inst.uid}"]`);
       if (card) screenshot(card, findDevice(inst.deviceId), card._screenW, card._screenH);
     }));
+    g2.appendChild(btn('fx-btn-equalize', t('equalize'), ICON.columns, equalizeColumns));
 
     const g3 = group();
     settingsBtn = btn('fx-btn-settings', t('settings'), ICON.gear, () => openSettings());
@@ -229,7 +244,7 @@
       return i;
     };
 
-    row(t('set_frame'), toggle('showFrame', render));
+    row(t('set_frame'), segmented('frameStyle', [['photo', t('frame_photo'), ICON.camera], ['drawn', t('frame_drawn'), ICON.phone], ['none', t('frame_none'), ICON.fullscreen]], render));
     row(t('set_realistic'), toggle('realisticUI', render));
     row(t('set_sync'), toggle('syncScroll'));
     divider();
@@ -246,13 +261,14 @@
     uaSelect.value = state.headerType;
     uaSelect.addEventListener('change', async () => {
       state.headerType = uaSelect.value;
-      await chrome.runtime.sendMessage({ action: 'setHeaderType', value: state.headerType });
+      try { await chrome.runtime.sendMessage({ action: 'setHeaderType', value: state.headerType }); } catch { /* context gone */ }
       reloadFrames();
     });
     row(t('ua_label'), uaSelect);
     const foot = el('div', 'fx-settings-foot');
     foot.appendChild(btn('fx-btn-text', t('custom_device'), `${ICON.plus}<span>${t('create_device')}</span>`, () => { closeSettings(); openModal(); }));
-    foot.appendChild(el('span', 'fx-version', `v${chrome.runtime.getManifest().version}`));
+    let version = ''; try { version = `v${chrome.runtime.getManifest().version}`; } catch { /* context gone */ }
+    foot.appendChild(el('span', 'fx-version', version));
     box.appendChild(foot);
 
     settings.appendChild(box);
@@ -432,7 +448,7 @@
   }
 
   // ------------------------------------------------------------------ stage
-  const RING = { phone: 5, tablet: 4, laptop: 4 };
+  const RING = { phone: 6, tablet: 5, laptop: 4 };
   const BROWSER_UI = { // heights of the browser chrome drawn in "browser" screen mode
     'ios-phone': { top: 50, bottom: 54 }, 'ios-tablet': { top: 92, bottom: 0 },
     'android-phone': { top: 56, bottom: 22 }, 'android-tablet': { top: 92, bottom: 0 },
@@ -468,17 +484,22 @@
     const S = state.settings;
     const screenW = instance.landscape ? d.h : d.w;
     const screenH = instance.landscape ? d.w : d.h;
-    const showFrame = S.showFrame;
+    const showFrame = S.frameStyle !== 'none';
     const bezel = showFrame ? (BEZEL[d.type] || BEZEL.phone) : 0;
     const ring = showFrame ? (RING[d.type] || RING.phone) : 0;
     const realistic = S.realisticUI && d.type !== 'laptop';
     const mode = realistic ? S.screenMode : 'none';
-    const statusH = mode === 'pwa' || mode === 'browser' ? (instance.landscape ? 24 : STATUS_H[d.cutout] ?? STATUS_H.none) : 0;
+    const statusH = mode === 'pwa' || mode === 'browser' ? (instance.landscape ? 24 : d.statusH ?? STATUS_H[d.cutout] ?? STATUS_H.none) : 0;
     const ui = mode === 'browser' ? (BROWSER_UI[`${d.os}-${d.type}`] || BROWSER_UI['android-phone']) : { top: 0, bottom: 0 };
     const pageH = Math.max(200, screenH - statusH - ui.top - ui.bottom);
     // frames with a physical home button get extra chin/forehead (see .fx-home-button in CSS)
     const chin = d.homeButton && showFrame ? (50 - bezel) + (70 - bezel) : 0;
     const base = d.type === 'laptop' && showFrame ? 22 : 0; // aluminium base drawn under the screen
+
+    // Photo frame: a device render (PNG/AVIF with a transparent screen area) laid
+    // over the page, exactly like the original extension does. Declared per device
+    // as d.frame = { image, w, h, x, y, mask }. Falls back to the CSS frame.
+    const photo = S.frameStyle === 'photo' && d.frame && d.frame.image ? d.frame : null;
 
     const card = el('div', 'fx-card');
     card.dataset.uid = instance.uid;
@@ -492,8 +513,9 @@
     const wrap = el('div', 'fx-frame-wrap');
     const cls = ['fx-frame', `fx-${d.type}`, `fx-${d.os}`, `fx-cutout-${d.cutout || 'none'}`, `fx-mode-${mode}`];
     if (instance.landscape) cls.push('fx-landscape');
-    if (d.homeButton && showFrame) cls.push('fx-home-button');
+    if (d.homeButton && showFrame && !photo) cls.push('fx-home-button');
     if (!showFrame) cls.push('fx-noframe');
+    if (photo) cls.push('fx-photo');
     const frame = el('div', cls.join(' '));
 
     const screen = el('div', 'fx-screen');
@@ -510,17 +532,34 @@
     if (statusH) {
       const status = el('div', 'fx-statusbar');
       status.innerHTML = `<span class="fx-time"></span><span class="fx-status-icons"><i class="fx-signal"></i><i class="fx-wifi"></i><i class="fx-battery"></i></span>`;
-      if (d.cutout && d.cutout !== 'none') status.appendChild(el('div', `fx-cutout fx-cutout-shape-${d.cutout}`));
+      if (d.statusPad && !instance.landscape) status.style.padding = `0 ${d.statusPad[1]}px 0 ${d.statusPad[0]}px`;
+      if (d.statusAlign === 'top') status.style.alignItems = 'flex-start';
+      if (d.cutout && d.cutout !== 'none' && !photo) status.appendChild(el('div', `fx-cutout fx-cutout-shape-${d.cutout}`));
       screen.appendChild(status);
     }
     if (ui.top) screen.appendChild(buildBrowserTop(d));
     screen.appendChild(iframe);
     if (ui.bottom) screen.appendChild(buildBrowserBottom(d));
-    if (mode === 'fullscreen' && d.cutout && d.cutout !== 'none' && !instance.landscape) {
+    if (mode === 'fullscreen' && d.cutout && d.cutout !== 'none' && !instance.landscape && !photo) {
       screen.appendChild(el('div', `fx-cutout fx-cutout-overlay fx-cutout-shape-${d.cutout}`));
     }
     frame.appendChild(screen);
-    if (showFrame) {
+    let photoImg = null;
+    if (photo) {
+      photoImg = el('div', 'fx-photo-img');
+      photoImg.style.backgroundImage = `url(${chrome.runtime.getURL(photo.image)})`;
+      frame.appendChild(photoImg);
+      // the render's screen cut-out has rounded corners: clip the page the same way,
+      // otherwise the black corners of the screen show outside the device outline
+      if (photo.mask) screen.style.clipPath = `path('${photo.mask}')`;
+      else if (photo.r) {
+        // one radius per corner (tl tr br bl): the hinge side of a foldable, for
+        // instance, needs a bigger radius than the screen cut-out itself
+        const rs = Array.isArray(photo.r) ? photo.r : [photo.r, photo.r, photo.r, photo.r];
+        const rr = instance.landscape ? [rs[3], rs[0], rs[1], rs[2]] : rs; // rotated 90° ccw
+        screen.style.clipPath = `inset(0 round ${rr.map((v) => `${v}px`).join(' ')})`;
+      }
+    } else if (showFrame) {
       if (d.homeButton) frame.appendChild(el('div', 'fx-home-btn'));
       if (d.type === 'laptop') {
         frame.appendChild(el('div', 'fx-laptop-cam'));
@@ -545,8 +584,9 @@
       render();
     }));
 
-    const outerW0 = screenW + 2 * (bezel + ring) + (instance.landscape ? chin : 0);
-    const outerH0 = screenH + 2 * (bezel + ring) + (instance.landscape ? 0 : chin) + base;
+    const overhang = base && !photo ? LAPTOP_OVERHANG : 0;
+    const outerW0 = photo ? (instance.landscape ? photo.h : photo.w) : screenW + 2 * (bezel + ring) + (instance.landscape ? chin : 0) + 2 * overhang;
+    const outerH0 = photo ? (instance.landscape ? photo.w : photo.h) : screenH + 2 * (bezel + ring) + (instance.landscape ? 0 : chin) + base;
     card._fit = () => {
       const avail = card.clientHeight - label.offsetHeight - 44;
       const availW = card.clientWidth - 44;
@@ -563,8 +603,31 @@
       const ph = Math.ceil(pageH * s * dpr) / (s * dpr); // page viewport grows by < 1px
       const chinA = d.homeButton && showFrame ? snap(50) : 0, chinB = d.homeButton && showFrame ? snap(70) : 0;
       const chinTotal = chinA && chinB ? chinA + chinB - 2 * bz : 0;
-      const oW = screenW + 2 * (bz + rg) + (instance.landscape ? chinTotal : 0);
-      const oH = st + bt + ph + bb + 2 * (bz + rg) + (instance.landscape ? 0 : chinTotal) + base;
+      const oh = snap(overhang);
+      let oW = screenW + 2 * (bz + rg) + (instance.landscape ? chinTotal : 0);
+      let oH = st + bt + ph + bb + 2 * (bz + rg) + (instance.landscape ? 0 : chinTotal) + base;
+      if (photo) {
+        // the render fixes the outer size; the screen sits at (x, y) inside it.
+        // In landscape the portrait render is rotated 90° counter-clockwise, so a
+        // point (u, v) of the render lands at (v, W - u).
+        let px = photo.x, py = photo.y;
+        if (instance.landscape) { px = photo.y; py = photo.w - photo.x - d.w; }
+        px = snap(px); py = snap(py);
+        oW = snap(instance.landscape ? photo.h : photo.w);
+        oH = snap(instance.landscape ? photo.w : photo.h);
+        screen.style.left = `${px}px`;
+        screen.style.top = `${py}px`;
+        screen.style.width = `${screenW}px`;
+        screen.style.height = `${st + bt + ph + bb}px`;
+        if (photoImg) {
+          // the image element always has the render's portrait size; rotate it into place
+          photoImg.style.width = `${snap(photo.w)}px`;
+          photoImg.style.height = `${snap(photo.h)}px`;
+          photoImg.style.left = instance.landscape ? `${(oW - snap(photo.w)) / 2}px` : '0';
+          photoImg.style.top = instance.landscape ? `${(oH - snap(photo.h)) / 2}px` : '0';
+          photoImg.style.transform = instance.landscape ? 'rotate(-90deg)' : '';
+        }
+      }
       frame.style.setProperty('--bezel', `${bz}px`);
       frame.style.setProperty('--ring-w', `${rg}px`);
       frame.style.setProperty('--status-h', `${st}px`);
@@ -574,7 +637,9 @@
       iframe.style.height = `${ph}px`;
       frame.style.width = `${oW}px`;
       frame.style.height = `${oH}px`;
-      wrap.style.width = `${Math.round(oW * s)}px`;
+      frame.style.setProperty('--overhang', `${oh}px`);
+      frame.style.left = `${oh * s}px`; // leave room for the laptop base on the left
+      wrap.style.width = `${Math.round((oW + 2 * oh) * s)}px`;
       wrap.style.height = `${Math.round(oH * s)}px`;
       // CSS zoom instead of transform: the page inside the iframe is laid out and
       // rasterised at the final size, so the compositor never has to filter a
@@ -615,7 +680,7 @@
         sp.style.order = idx * 2 + 1;
         sp.title = t('resize_hint');
         sp.addEventListener('pointerdown', (e) => startResize(e, idx));
-        sp.addEventListener('dblclick', () => { state.instances.forEach((x) => { x.weight = 1; }); applyColumns(); saveInstances(); fitAll(); });
+        sp.addEventListener('dblclick', equalizeColumns);
         stage.appendChild(sp);
       }
     });
@@ -633,6 +698,7 @@
   }
 
   function tickClock() {
+    if (!alive()) return teardown();
     const now = new Date();
     const custom = state.settings.customTime && /^\d{1,2}:\d{2}$/.test(state.settings.customTime) ? state.settings.customTime : null;
     const txt = custom || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -686,6 +752,13 @@
   // ------------------------------------------------------ resizable columns
   // Each instance carries a `weight`; the grid template is rebuilt from the
   // instances in visual order, with an 8px splitter column between devices.
+  function equalizeColumns() {
+    state.instances.forEach((i) => { i.weight = 1; });
+    applyColumns();
+    saveInstances();
+    fitAll();
+  }
+
   function applyColumns() {
     if (!state.instances.length) { stage.style.gridTemplateColumns = ''; return; }
     stage.style.gridTemplateColumns = state.instances.map((i) => `minmax(0, ${i.weight || 1}fr)`).join(' 8px ');
@@ -730,6 +803,7 @@
   const frameHref = (f) => { try { return f.contentWindow.location.href; } catch { return null; } };
 
   function pollNavigation() {
+    if (!alive()) return teardown();
     const fs = frames();
     for (const f of fs) {
       const href = frameHref(f);
@@ -757,27 +831,41 @@
       }
       if (w._flexiScrollSync) return;
       w._flexiScrollSync = true;
+      iframe._lastY = w.scrollY;
       w.addEventListener('scroll', () => onFrameScroll(iframe), { passive: true });
     } catch { /* cross-origin frame: nothing to sync */ }
   }
 
+  // Each target moves by whichever is smaller: the proportional position (same
+  // fraction of its own page) or the same pixel distance the source moved. So a
+  // long mobile page never races ahead when a short tablet page is scrolled,
+  // while scrolling the mobile still moves the tablet proportionally.
   function onFrameScroll(source) {
     if (!state.settings.syncScroll) return;
-    if (source._syncedAt && performance.now() - source._syncedAt < 200) return; // echo of our own scrollTo
-    let fraction;
+    let y, delta, fraction;
     try {
       const w = source.contentWindow, doc = w.document.documentElement;
+      y = w.scrollY;
+      delta = y - (source._lastY ?? y);
+      source._lastY = y;
+      if (source._syncedAt && performance.now() - source._syncedAt < 200) return; // echo of our own scrollTo
       const max = doc.scrollHeight - w.innerHeight;
-      fraction = max > 0 ? w.scrollY / max : 0;
+      fraction = max > 0 ? y / max : 0;
     } catch { return; }
+    if (!delta && !y) return;
     frames().forEach((o) => {
       if (o === source) return;
       try {
         const w = o.contentWindow, doc = w.document.documentElement;
-        const max = doc.scrollHeight - w.innerHeight;
-        const target = Math.round(fraction * Math.max(0, max));
-        if (Math.abs(w.scrollY - target) < 1) return;
+        const max = Math.max(0, doc.scrollHeight - w.innerHeight);
+        const cur = w.scrollY;
+        const byFraction = fraction * max;
+        const byDelta = cur + delta;
+        const pick = Math.abs(byFraction - cur) <= Math.abs(byDelta - cur) ? byFraction : byDelta;
+        const target = Math.round(Math.min(max, Math.max(0, pick)));
+        if (Math.abs(cur - target) < 1) return;
         o._syncedAt = performance.now();
+        o._lastY = target;
         w.scrollTo({ top: target, behavior: 'instant' });
       } catch { /* cross-origin */ }
     });
@@ -877,11 +965,23 @@
   function teardown() {
     clearInterval(clockTimer);
     clearInterval(navTimer);
+    closePicker(); closeSettings(); closeModal();
+    window.removeEventListener('unhandledrejection', onInvalidated);
+    window.removeEventListener('error', onInvalidated);
     window.removeEventListener('resize', fitAll);
     host.remove();
     document.documentElement.style.overflow = prevOverflow;
     delete window.__flexiDevice;
   }
+
+  // Last line of defence: once the context is gone, swallow this script's own
+  // "Extension context invalidated" errors and dismantle the UI.
+  const onInvalidated = (e) => {
+    const msg = String(e?.reason?.message || e?.message || e?.reason || '');
+    if (msg.includes('Extension context invalidated')) { e.preventDefault?.(); if (window.__flexiDevice) teardown(); }
+  };
+  window.addEventListener('unhandledrejection', onInvalidated);
+  window.addEventListener('error', onInvalidated);
 
   // ------------------------------------------------------------------- boot
   let clockTimer, navTimer;
@@ -904,6 +1004,6 @@
       const card = active?.classList?.contains('fx-iframe') && active.closest('.fx-card');
       if (card && card.dataset.uid !== state.selectedUid) selectInstance(card.dataset.uid);
     }, 0));
-    window.__flexiDevice = { render, teardown };
+    window.__flexiDevice = { render, teardown, alive };
   })();
 })();

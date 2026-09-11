@@ -195,5 +195,17 @@
   },
   "time_example": {
     "message": "HH:MM"
+  },
+  "frame_photo": {
+    "message": "Realistic"
+  },
+  "frame_drawn": {
+    "message": "Drawn"
+  },
+  "frame_none": {
+    "message": "No frame"
+  },
+  "equalize": {
+    "message": "Equalize device widths"
   }
 }
