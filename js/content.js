@@ -31,7 +31,7 @@
     customDevices: [],
     favorites: [],
     headerType: 'ios',
-    settings: { frameStyle: 'photo', realisticUI: true, syncScroll: true, theme: 'system', screenMode: 'browser', customUrl: '', customTime: '' },
+    settings: { frameStyle: 'photo', realisticUI: true, syncScroll: true, theme: 'system', screenMode: 'browser', customUrl: '', customTime: '', layout: 'equal' },
     url: location.href,
     selectedUid: null,
   };
@@ -126,13 +126,14 @@
     aa: '<svg viewBox="0 0 24 24"><path d="M3 18l4.5-12h1L13 18M5 14h5.5M14 18l3-8h.8l3 8M15.5 15.5h4"/></svg>',
     mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>',
     columns: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.2"/><rect x="9.5" y="4" width="5" height="16" rx="1.2"/><rect x="16" y="4" width="5" height="16" rx="1.2"/></svg>',
+    proportional: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="4" height="13" rx="1.2"/><rect x="9" y="4" width="6" height="16" rx="1.2"/><rect x="17" y="9" width="4" height="11" rx="1.2"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     apple: '<svg viewBox="0 0 24 24"><path d="M16.4 12.6c0-2.4 2-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.8-3-.8C7 7.3 5.6 8.2 4.8 9.6c-1.7 2.9-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8s1.9.8 3.2.8 2.1-1.2 2.9-2.4c.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14.1 5.7c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3z" fill="currentColor" stroke="none"/></svg>',
   };
   const TYPE_ICON = { phone: ICON.phone, tablet: ICON.tablet, laptop: ICON.laptop };
 
   // ----------------------------------------------------------------- toolbar
-  let stage, modal, picker, addBtn, deviceBtn, settingsBtn, settings;
+  let stage, modal, picker, addBtn, deviceBtn, settingsBtn, settings, layoutBtn, layoutMenu;
 
   const selectedInstance = () => state.instances.find((i) => i.uid === state.selectedUid) || state.instances[0] || null;
 
@@ -163,7 +164,8 @@
       const card = inst && stage.querySelector(`.fx-card[data-uid="${inst.uid}"]`);
       if (card) screenshot(card, findDevice(inst.deviceId), card._screenW, card._screenH);
     }));
-    g2.appendChild(btn('fx-btn-equalize', t('equalize'), ICON.columns, equalizeColumns));
+    layoutBtn = btn('fx-btn-equalize', t('layout_menu'), ICON.columns, () => toggleLayoutMenu());
+    g2.appendChild(layoutBtn);
 
     const g3 = group();
     settingsBtn = btn('fx-btn-settings', t('settings'), ICON.gear, () => openSettings());
@@ -587,7 +589,10 @@
     const overhang = base && !photo ? LAPTOP_OVERHANG : 0;
     const outerW0 = photo ? (instance.landscape ? photo.h : photo.w) : screenW + 2 * (bezel + ring) + (instance.landscape ? chin : 0) + 2 * overhang;
     const outerH0 = photo ? (instance.landscape ? photo.w : photo.h) : screenH + 2 * (bezel + ring) + (instance.landscape ? 0 : chin) + base;
-    card._fit = () => {
+    card._outerW = outerW0;
+    card._outerH = outerH0;
+    card._maxScale = () => Math.min(1, (card.clientHeight - label.offsetHeight - 44) / outerH0, (card.clientWidth - 44) / outerW0);
+    card._fit = (forced) => {
       const avail = card.clientHeight - label.offsetHeight - 44;
       const availW = card.clientWidth - 44;
       const dpr = window.devicePixelRatio || 1;
@@ -596,7 +601,7 @@
       // page while it scrolls. Pick a scale that makes the screen width an
       // integer number of device pixels, then size every strip (ring, bezel,
       // status bar, browser bars, chin) so their scaled sizes are integers too.
-      let s = Math.min(1, avail / outerH0, availW / outerW0);
+      let s = forced ?? Math.min(1, avail / outerH0, availW / outerW0);
       s = Math.max(0.05, Math.floor(screenW * s * dpr) / (screenW * dpr));
       const snap = (v) => (v ? Math.round(v * s * dpr) / (s * dpr) : 0);
       const bz = snap(bezel), rg = snap(ring), st = snap(statusH), bt = snap(ui.top), bb = snap(ui.bottom);
@@ -684,6 +689,9 @@
         stage.appendChild(sp);
       }
     });
+    if (state.settings.layout === 'proportional') {
+      state.instances.forEach((i) => { const c = stage.querySelector(`.fx-card[data-uid="${i.uid}"]`); if (c?._outerW) i.weight = Math.round(c._outerW); });
+    }
     applyColumns();
     if (!state.instances.some((i) => i.uid === state.selectedUid)) state.selectedUid = state.instances[0].uid;
     selectInstance(state.selectedUid);
@@ -691,7 +699,15 @@
     tickClock();
   }
 
-  const fitAll = () => stage.querySelectorAll('.fx-card').forEach((c) => c._fit && c._fit());
+  const fitAll = () => {
+    const cards = [...stage.querySelectorAll('.fx-card')].filter((c) => c._fit);
+    if (state.settings.layout === 'proportional' && cards.length > 1) {
+      const shared = Math.min(...cards.map((c) => c._maxScale()));
+      cards.forEach((c) => c._fit(shared));
+    } else {
+      cards.forEach((c) => c._fit());
+    }
+  };
 
   function reloadFrames() {
     stage.querySelectorAll('.fx-iframe').forEach((f) => { f.src = state.url; });
@@ -752,10 +768,57 @@
   // ------------------------------------------------------ resizable columns
   // Each instance carries a `weight`; the grid template is rebuilt from the
   // instances in visual order, with an 8px splitter column between devices.
+  // ------------------------------------------------------------ layout menu
+  function toggleLayoutMenu() {
+    if (layoutMenu) return closeLayoutMenu();
+    closePicker(); closeSettings();
+    layoutMenu = el('div', 'fx-popover fx-menu');
+    layoutBtn.classList.add('fx-open');
+    const item = (key, label, icon, active) => {
+      const b = el('button', `fx-menu-item${active ? ' fx-active' : ''}`);
+      b.type = 'button';
+      b.innerHTML = `${icon}<span>${label}</span>`;
+      b.addEventListener('click', () => { closeLayoutMenu(); key === 'equal' ? equalizeColumns() : proportionalColumns(); });
+      layoutMenu.appendChild(b);
+    };
+    item('equal', t('layout_equal'), ICON.columns, state.settings.layout === 'equal');
+    item('proportional', t('layout_proportional'), ICON.proportional, state.settings.layout === 'proportional');
+    app.appendChild(layoutMenu);
+    placePopover(layoutMenu, layoutBtn, 300);
+    setTimeout(() => root.addEventListener('pointerdown', onOutsideLayoutMenu), 0);
+  }
+  function onOutsideLayoutMenu(e) {
+    if (!layoutMenu) return;
+    const path = e.composedPath();
+    if (path.includes(layoutMenu) || path.includes(layoutBtn)) return;
+    closeLayoutMenu();
+  }
+  function closeLayoutMenu() {
+    if (!layoutMenu) return;
+    layoutBtn.classList.remove('fx-open');
+    layoutMenu.remove();
+    layoutMenu = null;
+    root.removeEventListener('pointerdown', onOutsideLayoutMenu);
+  }
+
+  // every column the same width; each device scaled to fit its own column
   function equalizeColumns() {
+    state.settings.layout = 'equal';
     state.instances.forEach((i) => { i.weight = 1; });
     applyColumns();
-    saveInstances();
+    saveSettings(); saveInstances();
+    fitAll();
+  }
+  // columns proportional to each device's real size, and one shared scale for
+  // all of them, so a Pro Max really looks bigger than a mini
+  function proportionalColumns() {
+    state.settings.layout = 'proportional';
+    state.instances.forEach((i) => {
+      const card = stage.querySelector(`.fx-card[data-uid="${i.uid}"]`);
+      i.weight = card && card._outerW ? Math.round(card._outerW) : 1;
+    });
+    applyColumns();
+    saveSettings(); saveInstances();
     fitAll();
   }
 
@@ -774,6 +837,7 @@
     if (left + right < min * 2) return;
     stage.classList.add('fx-resizing');
     let raf = 0;
+    if (state.settings.layout === 'proportional') { state.settings.layout = 'manual'; saveSettings(); }
     const move = (ev) => {
       const nl = Math.min(Math.max(left + (ev.clientX - startX), min), left + right - min);
       px[idx] = nl;
@@ -965,7 +1029,7 @@
   function teardown() {
     clearInterval(clockTimer);
     clearInterval(navTimer);
-    closePicker(); closeSettings(); closeModal();
+    closePicker(); closeSettings(); closeModal(); closeLayoutMenu();
     window.removeEventListener('unhandledrejection', onInvalidated);
     window.removeEventListener('error', onInvalidated);
     window.removeEventListener('resize', fitAll);
@@ -998,7 +1062,7 @@
     navTimer = setInterval(pollNavigation, 400);
     window.addEventListener('resize', fitAll);
     new ResizeObserver(fitAll).observe(stage);
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closePicker(); closeSettings(); } });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closePicker(); closeSettings(); closeLayoutMenu(); } });
     window.addEventListener('blur', () => setTimeout(() => {
       const active = root.activeElement;
       const card = active?.classList?.contains('fx-iframe') && active.closest('.fx-card');

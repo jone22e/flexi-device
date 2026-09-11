@@ -31,7 +31,7 @@ As molduras são reduzidas com `zoom` (não `transform: scale`) e todas as borda
 - Dispositivos personalizados (nome, largura, altura, tipo, estilo), salvos em `chrome.storage.local`
 - Vários dispositivos ao mesmo tempo, cada um ocupando uma fração igual da tela (1/n), centralizado e escalado para caber
 - Arrastar e soltar (pela moldura ou pelo rótulo) para reordenar os dispositivos
-- Divisores entre os dispositivos para redimensionar a área de cada um; botão na barra (ou duplo clique no divisor) iguala as larguras
+- Divisores entre os dispositivos para redimensionar a área de cada um; botão "Reorganizar dispositivos" na barra com duas opções: tamanhos iguais, ou proporcional ao tamanho real (mesma escala para todos, colunas na proporção de cada aparelho)
 - Dispositivo selecionado com borda azul; girar, captura e troca de modelo agem sobre ele
 - Navegação sincronizada: ao trocar de página em um dispositivo, os outros acompanham (frames da mesma origem da aba)
 - Rolagem sincronizada por proporção, com opção para desligar

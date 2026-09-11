@@ -205,7 +205,13 @@
   "frame_none": {
     "message": "Sem moldura"
   },
-  "equalize": {
-    "message": "Reorganizar dispositivos (igualar larguras)"
+  "layout_menu": {
+    "message": "Reorganizar dispositivos"
+  },
+  "layout_equal": {
+    "message": "Tamanhos iguais"
+  },
+  "layout_proportional": {
+    "message": "Proporcional ao tamanho real dos dispositivos"
   }
 }

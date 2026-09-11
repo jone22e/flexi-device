@@ -205,7 +205,13 @@
   "frame_none": {
     "message": "No frame"
   },
-  "equalize": {
-    "message": "Equalize device widths"
+  "layout_menu": {
+    "message": "Arrange devices"
+  },
+  "layout_equal": {
+    "message": "Equal widths"
+  },
+  "layout_proportional": {
+    "message": "Proportional to real device sizes"
   }
 }

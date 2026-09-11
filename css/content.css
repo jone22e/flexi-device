@@ -220,6 +220,14 @@
 .fx-photo-img { position: absolute; top: 0; left: 0; z-index: 2; background-size: 100% 100%; background-repeat: no-repeat; pointer-events: none; transform-origin: center; }
 .fx-photo .fx-side-btn, .fx-photo::before, .fx-photo::after { display: none; }
 
+/* ------------------------------------------------------------- small menu */
+.fx-menu { display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.fx-menu-item { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
+.fx-menu-item svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
+.fx-menu-item:hover { background: var(--bg-2); }
+.fx-menu-item.fx-active { background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--accent); }
+.fx-menu-item.fx-active svg { color: var(--accent); }
+
 /* ------------------------------------------------------------------ modal */
 .fx-modal-backdrop { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; }
 .fx-modal { width: 400px; max-width: 92vw; background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
