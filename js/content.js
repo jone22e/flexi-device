@@ -668,18 +668,42 @@
     root.querySelectorAll('.fx-url-text, .fx-b-tab-title').forEach((e) => { e.textContent = label; });
   }
 
+  // Incremental render: existing cards are kept (rebuilding a card recreates
+  // its <iframe>, which reloads the page), so adding, removing or reordering a
+  // device never reloads the others. A card is rebuilt only when its own
+  // device, orientation or frame/UI settings change.
+  const cardSignature = (i) => {
+    const S = state.settings;
+    return `${i.deviceId}|${i.landscape ? 1 : 0}|${S.frameStyle}|${S.realisticUI ? 1 : 0}|${S.screenMode}`;
+  };
+
   function render() {
     closePicker();
-    stage.innerHTML = '';
+    const existing = new Map([...stage.querySelectorAll('.fx-card')].map((c) => [c.dataset.uid, c]));
+    stage.querySelectorAll('.fx-splitter, .fx-empty').forEach((n) => n.remove());
     if (!state.instances.length) {
+      existing.forEach((c) => c.remove());
       stage.appendChild(el('div', 'fx-empty', t('empty_stage')));
+      applyColumns();
       updateToolbar();
       return;
     }
+    const keep = new Set();
     state.instances.forEach((i, idx) => {
-      const c = buildDeviceCard(i);
+      const sig = cardSignature(i);
+      let c = existing.get(i.uid);
+      if (c && c.dataset.sig !== sig) {
+        const fresh = buildDeviceCard(i);
+        fresh.dataset.sig = sig;
+        c.replaceWith(fresh); // same DOM position, only this frame reloads
+        c = fresh;
+      } else if (!c) {
+        c = buildDeviceCard(i);
+        c.dataset.sig = sig;
+        stage.appendChild(c);
+      }
+      keep.add(i.uid);
       c.style.order = idx * 2;
-      stage.appendChild(c);
       if (idx < state.instances.length - 1) {
         const sp = el('div', 'fx-splitter');
         sp.style.order = idx * 2 + 1;
@@ -689,6 +713,7 @@
         stage.appendChild(sp);
       }
     });
+    existing.forEach((c, uidValue) => { if (!keep.has(uidValue)) c.remove(); });
     if (state.settings.layout === 'proportional') {
       state.instances.forEach((i) => { const c = stage.querySelector(`.fx-card[data-uid="${i.uid}"]`); if (c?._outerW) i.weight = Math.round(c._outerW); });
     }

@@ -32,8 +32,23 @@ const RULE_FRAME = 1000000;   // strip anti-framing response headers
 const RULE_UA = 2000000;      // mobile user agent request headers
 const RULE_FETCH = 3000000;   // make sub_frame requests look like top-level navigations
 
-/** tabId -> { origin } for tabs where the simulator is active */
+/** tabId -> { origin } for tabs where the simulator is active.
+ * Kept in memory for speed, mirrored to chrome.storage.session so it survives
+ * the service worker being shut down (Chrome kills it after ~30 s idle). Without
+ * that, a page reload (Vite HMR, F5) would find no active tab and never re-inject. */
 const activeTabs = new Map();
+const ready = chrome.storage.session.get('activeTabs').then(({ activeTabs: saved }) => {
+  for (const [id, info] of Object.entries(saved || {})) activeTabs.set(Number(id), info);
+}).catch(() => {});
+const persistActive = () => chrome.storage.session.set({ activeTabs: Object.fromEntries(activeTabs) }).catch(() => {});
+/** memory first, then session storage (covers a worker that was restarted) */
+async function isActive(tabId) {
+  await ready;
+  if (activeTabs.has(tabId)) return true;
+  const { activeTabs: saved } = await chrome.storage.session.get('activeTabs').catch(() => ({}));
+  if (saved && saved[tabId]) { activeTabs.set(tabId, saved[tabId]); return true; }
+  return false;
+}
 
 const isRestricted = (url) => !url || RESTRICTED_PREFIXES.some((p) => url.startsWith(p));
 
@@ -119,16 +134,19 @@ async function inject(tabId) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ['js/devices.js', 'js/content.js'] });
 }
 
-const waitForComplete = (tabId) =>
-  new Promise((resolve) => {
-    const listener = (id, info) => {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    };
+// Resolves once the tab has finished loading. Checks the current status first:
+// fast pages (a local Vite server, for instance) reach "complete" before an
+// async caller gets to register the listener, and the event would be missed.
+const waitForComplete = async (tabId) => {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || tab.status === 'complete') return;
+  await new Promise((resolve) => {
+    const done = () => { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(listener); resolve(); };
+    const listener = (id, info) => { if (id === tabId && info.status === 'complete') done(); };
+    const timer = setTimeout(done, 15000);
     chrome.tabs.onUpdated.addListener(listener);
   });
+};
 
 async function enable(tabId) {
   const tab = await chrome.tabs.get(tabId);
@@ -141,7 +159,8 @@ async function enable(tabId) {
   const headerType = await getHeaderType();
   await applyRules(tabId, headerType);
   activeTabs.set(tabId, { origin: new URL(tab.url).origin });
-  if (tab.status === 'loading') await waitForComplete(tabId);
+  await persistActive();
+  await waitForComplete(tabId);
   await inject(tabId);
   await chrome.action.setBadgeText({ tabId, text: 'ON' });
   await chrome.action.setBadgeBackgroundColor({ tabId, color: '#2563eb' });
@@ -149,13 +168,14 @@ async function enable(tabId) {
 
 async function disable(tabId, { reload = true } = {}) {
   activeTabs.delete(tabId);
+  await persistActive();
   await removeRules(tabId).catch(() => {});
   await chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
   if (reload) await chrome.tabs.reload(tabId).catch(() => {});
 }
 
 async function toggle(tabId) {
-  if (activeTabs.has(tabId)) await disable(tabId);
+  if (await isActive(tabId)) await disable(tabId);
   else await enable(tabId);
 }
 
@@ -178,10 +198,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // Re-inject after a top-level navigation while the simulator is active
 // (user reloaded, or the URL bar inside the simulator navigated the tab).
 chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => {
-  if (!activeTabs.has(tabId)) return;
+  if (!(await isActive(tabId))) return;
   if (frameId !== 0) return hideScrollbars(tabId, frameId);
   if (isRestricted(url)) return disable(tabId, { reload: false });
   activeTabs.set(tabId, { origin: new URL(url).origin });
+  persistActive();
   await waitForComplete(tabId);
   inject(tabId).catch((e) => {
     console.error('re-inject failed', e);
@@ -190,24 +211,27 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
 });
 
 // late fallback: some documents only accept CSS once loading has finished
-chrome.webNavigation.onCompleted.addListener(({ tabId, frameId }) => {
-  if (frameId !== 0 && activeTabs.has(tabId)) hideScrollbars(tabId, frameId);
+chrome.webNavigation.onCompleted.addListener(async ({ tabId, frameId }) => {
+  if (frameId !== 0 && (await isActive(tabId))) hideScrollbars(tabId, frameId);
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
-  if (activeTabs.has(tabId)) disable(tabId, { reload: false });
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  if (await isActive(tabId)) disable(tabId, { reload: false });
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const tabId = sender.tab?.id;
   switch (msg?.action) {
+    case 'ping':
+      isActive(tabId).then((active) => sendResponse({ active }));
+      return true;
     case 'close':
       disable(tabId).then(() => sendResponse({ ok: true }));
       return true;
 
     case 'isActive':
-      sendResponse({ active: activeTabs.has(tabId) });
-      return false;
+      isActive(tabId).then((active) => sendResponse({ active }));
+      return true;
 
     case 'setHeaderType': {
       const headerType = USER_AGENTS[msg.value] !== undefined ? msg.value : 'ios';
